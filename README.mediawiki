@@ -1,0 +1,21 @@
+= lqbz =
+
+== 天津麻将 ==
+
+[https://tiansh.github.io/lqbz/tjmj/]
+
+项目其实在 [http://sourceforge.net/projects/tjmj/]
+
+== 泡泡龙 ==
+
+[https://tiansh.github.io/lqbz/ppl/]
+
+觉得画风很糟糕吗？<br />
+奇怪的画风是因为写那天比较无聊，所以拿出来自己原来的 [https://github.com/tiansh/pascal/tree/master/ppl Pascal 版泡泡龙]
+
+== 双拼当量计算 ==
+
+[https://tiansh.github.io/lqbz/sp/]
+
+当量就是按键速度的意思，两个连续的字母在键盘上依次按下所需要的时间，取最快的标准化为1之后，剩下的就是相对的时间了。所以越小是越快的意思。数据都是网上找的，准不准我也不知道，所以就随便看看就好了，不要较真。
+

@@ -1,0 +1,1203 @@
+<!doctype html>
+<html>
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <link rel="stylesheet" href="sp.css" />
+    <title>双拼布局的统计计算</title>
+    <meta name="keywords" content="Dvorak,QWERTY,键盘,布局,打字,双拼" />
+    <meta name="description" content="本页面用JavaScript通过给定的音韵使用频率、键盘布局、双拼方案计算出在此情况下每个按键的使用频率；上排、中排、下排，左右手的统计，以及字内的击键当量。支持QWERTY、Dvorak、Colemak等双手键盘布局。" />
+    <meta name="author" content="田生" />
+    <script>
+var $ = function (i) { return document.querySelector(i); };
+var $$ = function (i) { return document.querySelectorAll(i); };
+
+var jsClick = function (obj) {
+  try { obj.click(); } catch (e) {
+    var event = document.createEvent('MouseEvents'); 
+    event.initEvent('click', true, true); 
+    obj.dispatchEvent(event); 
+  }
+};
+
+var updateMyLayout = function () {
+  $('#kb_layout').value = '';
+  updateLayout();
+};
+
+var updateLayout = function () {
+  var l = $$('#layout .t'), s = $('#kb_layout'), m = $('#my_layout'), k, v, i;
+  if (s.value !== '') {
+    m.value = s.value;
+  } else {
+    k = m.value.toUpperCase();
+    m.value = k;
+  }
+  k = m.value;
+  for (i = 0; i < k.length; i++)
+    l[i].innerHTML = k[i];
+  for (; i < l.length; i++) l[i].innerHTML = '';
+};
+
+var updateExtern = function () {
+  var e = $('#ex_option'), ex = e.checked, o, l, i;
+  document.body.className = ex ? 'ex' : '';
+  if (!ex) {
+    l = $('#kb_layout');
+    o = $$('#kb_layout option:not(.exn)');
+    for (i = 0; i < o.length; i++) if (o[i].value === l.value) break;
+    if (i === o.length) { l.value = o[0].value; updateLayout(); }
+  }
+
+};
+
+var updateShuangpin = function () {
+  var a = $$('#my_shuangpin input'), l = $$('#my_shuangpin .in .bs .spk input'),
+    s = $('#shuangpin').value, i, j;
+  if (s !== '') {
+    for (i = 0; i < a.length; i++)
+      if (a[i].defaultValue) a[i].value = a[i].defaultValue;
+      else a[i].value = '';
+    for (i = j = 0; i < l.length && j < s.length; j += l[i++].maxLength) {
+      l[i].value = s.substring(j).substring(0, l[i].maxLength);
+    }
+  }
+  l = $$('#my_shuangpin .in .exn .spk input');
+};
+
+var updateMyShuangpin = function () {
+  var l = $$('#my_shuangpin input'), i;
+  for (i = 0; i < l.length; i++) (function (p) {
+    var c = function (k) {
+      $('#shuangpin').value = '';
+      var s = p.value;
+      if (p.maxLength > 2) p.value = s.toLowerCase();
+      else p.value = s.toUpperCase();
+    };
+    var s = function () { p.select(); }
+    p.addEventListener('keyup', c);
+    p.addEventListener('change', c);
+    p.addEventListener('focus', s);
+  }(l[i]));
+};
+
+var keyDelayCS = function () {
+  var c = $('#key_delay_c');
+  c.addEventListener('scroll', function () {
+    var l = c.scrollLeft, t = c.scrollTop;
+    var tl = c.querySelectorAll('.tl');
+    var th = c.querySelectorAll('.th');
+    var i;
+    for (i = 0; i < tl.length; i++) tl[i].style.left = l + 'px';
+    for (i = 0; i < th.length; i++) th[i].style.top  = t + 'px';
+  });
+};
+
+var resetAllButton = function () {
+  $('#reset_all').addEventListener('click', function () {
+    jsClick($('#reset_all_0'));
+    updateLayout();
+    updateShuangpin();
+    updateExtern();
+  });
+};
+
+var verifyOutputClear = function () {
+  $('#verify_output').innerHTML = '';
+}
+var verifyOutput = function (tp, text) {
+  var d = document.createElement('div');
+  d.className = tp; d.innerHTML = text;
+  $('#verify_output').appendChild(d);
+}
+
+var verifyLayout = function () {
+  var l = $('#my_layout').value, k = {}, i, c, err = '', w = 1;
+  var n = ['11', '12', '13', '14', '15', '16', '17', '18', '19', '1A', '1B', '1C', '1D', 
+      '21', '22', '23', '24', '25', '26', '27', '28', '29', '2A', '2B', '2C',
+      '31', '32', '33', '34', '35', '36', '37', '38', '39', '3A', '3B'], p = {};
+  var addErrMsg = function (msg) {
+    if (err.indexOf(msg) !== -1) return;
+    err += '\n' + msg;
+    verifyOutput('error', msg);
+  }
+  verifyOutput('message', '正在检查键盘布局……');
+  for (i = 0; i < l.length; i++) if (l[i] !== ' ')
+    if (l[i] in p) addErrMsg('字母“' + l[i] + '”重复定义。');
+    else p[l[i]] = {'p': n[i], 'a': [], 'b': []};
+  for (i = 65; i <= 90; i++) {
+    c = String.fromCharCode(i);
+    if (!(c in p)) addErrMsg('字母“' + c + '”未定义。');
+  }
+  if (err !== '') return null;
+  if (l[12] !== ' ' || l[24] !== ' ' || l[25] !== ' ') {
+    verifyOutput('warning', '使用扩展按键将无法计算按键当量。');
+    w = 0;
+  }
+  if (!(';' in p)) {
+    verifyOutput('warning', '分号未定义，部分双拼布局可能无法使用。');
+    w = 0;
+  }
+  verifyOutput('verified', '键盘布局检查通过。');
+  return p;
+}
+
+var verifyShuangpin = function (o) {
+  var l, i, j, y, k, m, e = false, w = false, a, c;
+  verifyOutput('message', '正在检查双拼方案……');
+  a = $('#my_layout').value;
+  l = $$(['#my_shuangpin .in div.exn',
+    '#my_shuangpin .in div.bs',
+    '#my_shuangpin .exn .in div'].join(','));
+  c = $('#count').value.split('\n');
+  c = c.map(function (l) {
+    var s = l.split(',');
+    return {'b': s[0], 'a': s[1], 'c': Number(s[2]), 'ka': null, 'kb': null, 's': false};
+  })
+  for (i = 0; i < l.length; i++) {
+    y = l[i].querySelector('.spy input');
+    if (!y) y = l[i].querySelector('.spy').innerHTML; else y = y.value;
+    k = l[i].querySelector('.spk input'); m = k.maxLength; k = k.value;
+    if (y === '') continue;
+    if (k.length !== m) {
+      verifyOutput('error',[ (m === 1 ?
+          ('AOEIUÜ'.indexOf(y.toUpperCase()[0]) !== -1 ? '韵' : '声') + '母' : '音节'),
+        '“', y, '”期望标注', m, '个按键，实际标注为“', k, '”。'].join(''));
+      e = true;
+    }
+    for (j = 0; j < k.length; j++) {
+      if (a.indexOf(k[j]) === -1) { verifyOutput('error',[ (m === 1 ?
+          ('AOEIUÜ'.indexOf(y.toUpperCase()[0]) !== -1 ? '韵' : '声') + '母' : '音节'),
+        '“', y, '”使用了键盘上不存在的字符“', k[j], '”。'].join('')); e = true; }
+      else if (k[j] < 'A' || k[j] > 'Z') { verifyOutput('warning',[ (m === 1 ?
+          ('AOEIUÜ'.indexOf(y.toUpperCase()[0]) !== -1 ? '韵' : '声') + '母' : '音节'),
+        '“', y, '”使用了非英文字母字符“', k[j], '”。'].join('')); w = true; }
+    }
+    if (y.length === 1 && 'a' <= y && y <= 'z' && m === 1 && k !== y.toUpperCase()) {
+      verifyOutput('warning', [('AOEIU'.indexOf(y.toUpperCase()) !== -1 ? '韵' : '声'),
+        '母“', y, '”未使用“', y.toUpperCase(), '”键，而是使用“', k, '”键。'].join(''));
+      w = true;
+    }
+    if (!e && m === 1) {
+      if ('AOEIUÜ'.indexOf(y.toUpperCase()[0]) !== -1) o[k].a[o[k].a.length] = y;
+      else o[k].b[o[k].b.length] = y;
+    }
+    if (!e) {
+      c = c.map(function (n) {
+        if (m === 1) {
+          if (n.s) return n;
+          if (y === n.a) n.ka = k; else if (y === n.b) n.kb = k;
+        } else {
+          if (n.b + n.a !== y) return n;
+          if (n.s) {
+            verifyOutput('error', ['重复定义音节', y, '。'].join(''));
+            e = true;
+          }
+          else { n.s = true; n.kb = k[0]; n.ka = k[1]; }
+        }
+        return n;
+      });
+    }
+  }
+  for (i in o) if (o[i].b.length > 1) {
+    verifyOutput('warning', ['声母“', o[i].b.join('”“'), '”共用按键“', i, '”。'].join(''));
+    w = true;
+  }
+  if (!e) {
+    for (i = 0; i < c.length; i++) {
+      if (c[i].ka === null || c[i].kb === null) {
+        verifyOutput('error', ['无法为', c[i].b, c[i].a, '找到输入方式。'].join(''));
+        e = true;
+      }
+      for (j = i + 1; j < c.length; j++) {
+        if (c[i].ka === c[j].ka && c[i].kb === c[j].kb) {
+          verifyOutput('warning', ['音节', c[i].b, c[i].a, '与', c[j].b, c[j].a, '的输入均为', c[i].kb, c[i].ka, '。'].join(''));
+          w = true;
+        }
+      }
+    }
+  }
+  if (!e) {
+    verifyOutput('verified', '双拼方案检查通过。');
+    return c;
+  } else return null;
+};
+
+var showInfo = function () {
+  var l = $('#layout_name'), s = $('#shuangpin_name');
+  var k = $('#kb_layout'), p = $('#shuangpin');
+  var ko = $$('#kb_layout option'), po = $$('#shuangpin option');
+  var kn = $('#layout_name'), pn = $('#shuangpin_name');
+  var f = function (a, an, ao) {
+    var i;
+    if (a.value === '') {
+      an.value = '';
+      an.disabled = false;
+    } else {
+      an.disabled = true;
+      for (i = 0; i < ao.length; i++)
+        if (ao[i].value === a.value)
+          an.value = ao[i].innerHTML;
+    }
+  };
+  f(k, kn, ko); f(p, pn, po);
+  $('#infos').style.display = 'block';
+};
+
+var showLayout = function () {
+  var k = $$('#layout div div'), i;
+  for (i = 0; i < k.length; i++) {
+    if (k[i].querySelector('.t').innerHTML === ' ' && k[i].className === 'ex')
+      k[i].style.opacity = 0;
+  }
+}
+
+var showShuangpin = function (l, s) {
+  var v = $$('#my_shuangpin .in div .spk input[maxlength="1"]');
+  var w = $$('#my_shuangpin .in div .spk input[maxlength="2"]');
+  var e = false, i, d, a, j, b0 = null, p, u, er = null;
+  for (i in l) if (l[i].a.length + l[i].b.length > 4) {
+    verifyOutput('warning', 
+      ['按键“', i, '”被映射了超过4个拼音，无法显示拼音方案图。'].join(''));
+    e = true;
+  }
+  if (e) return;
+  for (i in l) {
+    d = document.getElementById('K' + l[i].p);
+    a = [d.querySelector('.a1'), d.querySelector('.a2'),
+      d.querySelector('.a3'), d.querySelector('.b')];
+    for (j = 0; j < l[i].a.length; j++) a[j].innerHTML = l[i].a[j];
+    for (j = 0; j < l[i].b.length; j++) a[3 - j].innerHTML = l[i].b[j];
+  };
+  for (i in s) if (s[i].s === true && s[i].b === '') { 
+    if (b0 === null) b0 = s[i].kb;
+    else if (b0 !== s[i].kb) b0 = false;
+    if (s[i].a === 'er') er = s[i].ka;
+  }
+  if (b0 && l[b0].b.length !== 0) b0 = false;
+  if (b0) {
+    verifyOutput('message', ['检查到〇声母方案，', b0, '为〇声母。'].join(''));
+    document.getElementById('K' + l[b0].p).querySelector('.b').innerHTML = '\'';
+    if (l[er].a.length + l[er].b.length <= 3) {
+      d = document.getElementById('K' + l[er].p);
+      a = [d.querySelector('.a1'), d.querySelector('.a2'),
+        d.querySelector('.a3'), d.querySelector('.b')];
+      a[l[er].a.length].innerHTML = 'er';
+      er = null;
+    }
+  }
+  p = $('#sp_sp'); p.innerHTML = ''; u = false;
+  for (i in s) if (s[i].s === true && (s[i].b !== '' || !b0 || (er && s[i].a === 'er'))) {
+    p.innerHTML += '<div><span class="spy">[Y]</span><span class="spk">[K]</span></div>'
+     .replace('[Y]', s[i].b + s[i].a).replace('[K]', s[i].kb + s[i].ka);
+    u = true;
+  }
+  if (u) $('#special').style.display = 'block';
+};
+
+var calcLS = function (l, s) {
+  var f = $('#calc_freq'), k, i, o = {}, t = 0, p, r, a, max, min, b, y;
+  $('#calc').style.display = 'block';
+  p = function (k, c) { if (!(k in o)) o[k] = c; else o[k] += c; t += c; }
+  s.map(function (d) { p(d.ka, d.c); p(d.kb, d.c); });
+  f.innerHTML = $('#layout').innerHTML;
+  k = f.querySelectorAll('.line div span:not(.t)');
+  max = 0; min = 100; y = {'1': 0, '2': 0, '3': 0};
+  for (i = 0; i < k.length; i++)
+   if (k[i].className !== 'b') k[i].parentNode.removeChild(k[i]);
+   else {
+     b = k[i].parentNode;
+     r = b.querySelector('.t').innerHTML;
+     k[i].className = 'c'; k[i].innerHTML = '';
+     if (!(r in o) || typeof(o[r]) !== 'number') continue;
+     y[b.id[1]] += a = o[r] / t * 100;
+     if (a > max) max = a; if (a < min) min = a;
+     k[i].innerHTML = a.toFixed(2) + '%';
+     b.style.backgroundColor
+       = 'rgb(255, ' + Math.round(255 - 255 * Math.min(a, 10) / 10) + ', 0)';;
+  }
+  ['1', '2', '3'].map(function (l) { $('#R' + l).value = y[l].toFixed(2) + '%'; });
+};
+
+var calcLR = function (l, s) {
+  var y = {'LL': 0, 'LR': 0, 'RL': 0, 'RR': 0}, t = 0;
+  var lr = function(p)
+  { return (((p[1] > '0') && (p[1] < '6')) || (p === '36')) ? 'L' : 'R' };
+  s.map(function (v) {
+    var l1 = lr(l[v.ka].p);
+    var l2 = lr(l[v.kb].p);
+    y[l1 + l2] += v.c;
+    t += v.c
+  });
+  ['LL', 'LR', 'RL', 'RR'].map(function (l) {
+    $('#R' + l).value = (y[l] / t * 100).toFixed(2) + '%';
+  });
+  $('#RLH').value = ((y['LL'] + (y['LR'] + y['RL']) / 2) / t * 100).toFixed(2) + '%';
+  $('#RRH').value = ((y['RR'] + (y['LR'] + y['RL']) / 2) / t * 100).toFixed(2) + '%';
+  $('#RSH').value = ((y['RR'] + y['LL']) / t * 100).toFixed(2) + '%';
+  $('#RDH').value = ((y['LR'] + y['RL']) / t * 100).toFixed(2) + '%';
+}
+
+var calcLD = function (l, s) {
+  var h = document.querySelectorAll('#key_delay .th:not(.tl)');
+  var i = document.querySelectorAll('#key_delay input');
+  var j, k, x, a = {}, p = 0, c = 0, t = 0, b, d = 0, u = 0;
+  for (j = 0; j < h.length; j++) {
+    a[x = h[j].innerHTML] = {};
+    for (k = 0; k < h.length; k++) a[x][h[k].innerHTML] = Number(i[p++].value);
+  }
+  try {
+    s.map(function (v) {
+      c += v.c * a[l[v.kb].p][l[v.ka].p];
+      t += v.c;
+      verifyOutput('debug', [v.kb, v.ka, c, a[l[v.kb].p][l[v.ka].p]]);
+    });
+    c = Number(c / t).toFixed(2); if (isNaN(c)) c = 'N/A';
+    s.map(function (v1) {
+      s.map(function (v2) {
+        d += v1.c * v2.c * a[l[v1.ka].p][l[v2.kb].p];
+        u += v1.c * v2.c;
+      });
+    });
+    d = Number(d / u).toFixed(2); if (isNaN(d)) d = 'N/A';
+  } catch (e) { c = d = 'N/A'; }
+  $('#delay_count').value = c;
+  $('#delay_cnt_c').value = d;
+}
+
+var checkInit = function () {
+  verifyOutputClear();
+  $('#setting').style.display = 'none';
+  $('#output').style.display = 'block';
+};
+
+var checkButton = function () {
+  $('#check_all').addEventListener('click', function () {
+    checkInit();
+    var l = verifyLayout(); if (!l) return;
+    var s = verifyShuangpin(l); if (!s) return;
+    verifyOutput('debug', JSON.stringify(l));
+    verifyOutput('debug', JSON.stringify(s));
+    showInfo();
+    showLayout();
+    showShuangpin(l, s);
+    calcLS(l, s);
+    calcLR(l, s);
+    calcLD(l, s);
+  });
+};
+
+var retEditButton = function () {
+  $('#ret_edit').addEventListener('click', function () {
+    verifyOutputClear();
+    $('#R1').value = $('#R2').value = $('#R3').value = ''
+    $('#RLL').value = $('#RLR').value = $('#RRL').value = $('#RRR').value = ''
+    $('#RLH').value = $('#RRH').value = $('#RSH').value = $('#RDH').value = ''
+    var l = $$('#layout span'), i;
+    for (i = 0; i < l.length; i++) l[i].innerHTML = '';
+    $('#setting').style.display = 'block';
+    $('#special').style.display = 'none';
+    $('#calc').style.display = 'none';
+    $('#infos').style.display = 'none';
+    $('#output').style.display = 'none';
+    l = $$('#layout div div');
+    for (i = 0; i < l.length; i++) l[i].style.opacity = 1;
+    updateLayout(); updateShuangpin();
+  });
+};
+
+window.addEventListener('load', function () {
+  $('#kb_layout').addEventListener('change', updateLayout);
+  $('#ex_option').addEventListener('change', updateExtern);
+  $('#my_layout').addEventListener('keyup', updateMyLayout);
+  $('#my_layout').addEventListener('change', updateMyLayout);
+  $('#shuangpin').addEventListener('change', updateShuangpin);
+  updateMyShuangpin();
+  updateLayout(); updateExtern(); updateShuangpin();
+  keyDelayCS(); resetAllButton(); checkButton(); retEditButton();
+});
+
+    </script>
+  </head>
+  <body>
+    <h1>双拼布局的统计计算</h1>
+    <!--[if lt IE 9]><h2>本页面不支持IE8或更低版本的IE浏览器</h2><![endif]-->
+    <noscript>
+      <h2>必须启用JavaScript才能进行计算</h2>
+      <div class="in">
+        <p>本页面用JavaScript通过给定的音韵使用频率、键盘布局、双拼方案计算出在此情况下每个按键的使用频率；上排、中排、下排，左右手的统计，以及字内的击键当量。支持QWERTY、Dvorak、Colemak等双手键盘布局。</p>
+      </div>
+    </noscript>
+    <h2>布局方案图</h2>
+      <div id="infos" style="display: none;">
+        <h3>基本信息</h3>
+        <div class="in">
+          <strong>键盘布局：</strong>
+          <input id="layout_name" class="ot" />
+          <strong>双拼方案：</strong>
+          <input id="shuangpin_name" class="ot" />
+        </div>
+      </div>
+      <h3>键盘图</h3>
+      <div class="in"><div id="layout" class="layout">
+        <div class="line1 line">
+          <div id="K11"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+          <div id="K12"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+          <div id="K13"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+          <div id="K14"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+          <div id="K15"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+          <div id="K16"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+          <div id="K17"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+          <div id="K18"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+          <div id="K19"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+          <div id="K1A"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+          <div id="K1B"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+          <div id="K1C"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+          <div id="K1D" class="ex"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+        </div>
+        <div class="line2 line">
+          <div id="K21"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+          <div id="K22"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+          <div id="K23"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+          <div id="K24"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+          <div id="K25"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+          <div id="K26"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+          <div id="K27"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+          <div id="K28"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+          <div id="K29"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+          <div id="K2A"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+          <div id="K2B"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+          <div id="K2C" class="ex"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+        </div>
+        <div class="line3 line">
+          <div id="K31" class="ex"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+          <div id="K32"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+          <div id="K33"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+          <div id="K34"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+          <div id="K35"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+          <div id="K36"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+          <div id="K37"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+          <div id="K38"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+          <div id="K39"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+          <div id="K3A"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+          <div id="K3B"><span class="t"></span><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="b"></span></div>
+        </div>
+      </div></div>
+      <div id="special" style="display: none;">
+        <h3>特殊音节</h3>
+        <div class="in"><div class="in" id="sp_sp">
+        </div></div>
+      </div>
+    <div id="setting"><h2>设置</h2><form>
+      <h3>键盘布局</h3>
+      <div class="in">
+        <label><select id="kb_layout">
+          <option value="QWERTYUIOP[] ASDFGHJKL;'  ZXCVBNM,./">QWERTY</option>
+          <option class="exn" value="QWERTZUIOP   ASDFGHJKL    YXCVBNM   ">QWERTZ</option>
+          <option class="exn" value="AZERTYUIOP   QSDFGHJKLM   WXCVBN    ">AZERTY</option>
+          <option class="exn" value="-" disabled="disabled">-----------------</option>
+          <option class="exn" value=";,.PYFGCRL   AOEUIDHTNS   ZQJKXBMWV-">Dvorak Classic</option>
+          <option value="',.PYFGCRL/= AOEUIDHTNS-  ;QJKXBMWVZ">Dvorak Simplified</option>
+          <option class="exn" value=";,.PYFGCRL/= AOEUIDHTNS-  'QJKXBMWVZ">Dvorak Programmer</option>
+          <option class="exn" value="-" disabled="disabled">-----------------</option>
+          <option value="QWFPGJLUY;[] ARSTDHNEIO'  ZXCVBKM,./">Colemak</option>
+          <option class="exn" value="-" disabled="disabled">-----------------</option>
+          <option class="exn" value=" HCESAROPZ    QTDINULMX   Y JBFVGKW_">HCESAR</option>
+          <option class="exn" value="JCUKENG  ZH  FYWAPROLDV   Q SMITXB  ">JCUKEN</option>
+          <option class="exn" value="XVLCWKHGFQ   UIAEOSNRTDY     PZBM  J">Neo</option>
+          <option class="exn" value="B PO  VDLJZW AUIE CTSRNM   YX K QGHF">BÉPO</option>
+          <option class="exn" value="FG IODRNHPQW U EA TKMLY X J VC ZSB  ">Turkish</option>
+          <option class="exn" value="-" disabled="disabled">-----------------</option>
+          <option class="exn" value="">自定义</option>
+        </select></label>
+        <input class="exn" id="my_layout" maxlength="36" />
+      </div>
+      <h3>双拼方案</h3>
+      <div class="in">
+        <label><select id="shuangpin">
+          <option value="AEVVLQMKBRXMMJFCNHGYSDZWTSDCPTOOAOLOJOHOKOOOBOEOQOFOGOR">智能ABC</option>
+          <option value="VIUYLZVKBQXVTJFNPHG;SWCMDSWYRDOOAOLOJOHOKOOOBOEOZOFOGOR">微软拼音</option>
+          <option value="VIUYLZVKBQXTTJFNPHG;SWCMDSWYRDOOAOLOJOHOKOOOBOEOZOFOGOR">搜狗拼音</option>
+          <option value="VUIVSWVDPNMXXFRLZGTQYBKJHYBXCHOAAASAFAGADOOOPEEEWERETEQ">拼音加加</option>
+          <option value="VIUVDWVCZQPTTJFBYHGKSXNMLSXKRLOAAAIANAHAOOOOUEEEIENEGER">小鹤双拼</option>
+          <option value="UAIVPKNQZJDNNRWYMST;HXBFGHXYLGOOAOPOROSOQOOOZOEOKOWOTOJ">紫光双拼</option>
+          <option value="VIUVLZVKBQXTTJFNPHGYSWCMDSWYRDOAAAIANAHAOOOOUEEEIENEGER">自然码</option>
+          <option value="-" disabled="disabled">-------</option>
+          <option value="">自定义</option>
+        </select></label><br />
+        <div id="my_shuangpin">
+          <h4>声母</h4>
+          <div class="in">
+            <div class="exn"><span class="spy">b</span><span class="spk"><input maxlength="1" id="sp_B" value="B" /></span></div>
+            <div class="exn"><span class="spy">p</span><span class="spk"><input maxlength="1" id="sp_P" value="P" /></span></div>
+            <div class="exn"><span class="spy">m</span><span class="spk"><input maxlength="1" id="sp_M" value="M" /></span></div>
+            <div class="exn"><span class="spy">f</span><span class="spk"><input maxlength="1" id="sp_F" value="F" /></span></div>
+            <br class="exn" />
+            <div class="exn"><span class="spy">d</span><span class="spk"><input maxlength="1" id="sp_D" value="D" /></span></div>
+            <div class="exn"><span class="spy">t</span><span class="spk"><input maxlength="1" id="sp_T" value="T" /></span></div>
+            <div class="exn"><span class="spy">n</span><span class="spk"><input maxlength="1" id="sp_N" value="N" /></span></div>
+            <div class="exn"><span class="spy">l</span><span class="spk"><input maxlength="1" id="sp_L" value="L" /></span></div>
+            <br class="exn" />
+            <div class="exn"><span class="spy">g</span><span class="spk"><input maxlength="1" id="sp_G" value="G" /></span></div>
+            <div class="exn"><span class="spy">k</span><span class="spk"><input maxlength="1" id="sp_K" value="K" /></span></div>
+            <div class="exn"><span class="spy">h</span><span class="spk"><input maxlength="1" id="sp_H" value="H" /></span></div>
+            <br class="exn" />
+            <div class="exn"><span class="spy">j</span><span class="spk"><input maxlength="1" id="sp_J" value="J" /></span></div>
+            <div class="exn"><span class="spy">q</span><span class="spk"><input maxlength="1" id="sp_Q" value="Q" /></span></div>
+            <div class="exn"><span class="spy">x</span><span class="spk"><input maxlength="1" id="sp_X" value="X" /></span></div>
+            <br class="exn" />
+            <div class="bs"><span class="spy">zh</span><span class="spk"><input maxlength="1" id="sp_ZH" /></span></div>
+            <div class="bs"><span class="spy">ch</span><span class="spk"><input maxlength="1" id="sp_CH" /></span></div>
+            <div class="bs"><span class="spy">sh</span><span class="spk"><input maxlength="1" id="sp_SH" /></span></div>
+            <div class="exn"><span class="spy">r</span><span class="spk"><input maxlength="1" id="sp_R" value="R" /></span></div>
+            <br class="exn" />
+            <div class="exn"><span class="spy">z</span><span class="spk"><input maxlength="1" id="sp_Z" value="Z" /></span></div>
+            <div class="exn"><span class="spy">c</span><span class="spk"><input maxlength="1" id="sp_C" value="C" /></span></div>
+            <div class="exn"><span class="spy">s</span><span class="spk"><input maxlength="1" id="sp_S" value="S" /></span></div>
+            <br class="exn" />
+            <div class="exn"><span class="spy">y</span><span class="spk"><input maxlength="1" id="sp_Y" value="Y" /></span></div>
+            <div class="exn"><span class="spy">w</span><span class="spk"><input maxlength="1" id="sp_W" value="W" /></span></div>
+          </div>
+          <h4>介母韵母</h4>
+          <div class="in">
+            <div class="exn"><span class="spy">a</span><span class="spk"><input maxlength="1" id="sp_A" value="A" /></span></div>
+            <div class="exn"><span class="spy">o</span><span class="spk"><input maxlength="1" id="sp_O" value="O" /></span></div>
+            <div class="exn"><span class="spy">e</span><span class="spk"><input maxlength="1" id="sp_E" value="E" /></span></div>
+            <div class="exn"><span class="spy">i</span><span class="spk"><input maxlength="1" id="sp_I" value="I" /></span></div>
+            <div class="exn"><span class="spy">u</span><span class="spk"><input maxlength="1" id="sp_U" value="U" /></span></div>
+            <div class="bs"><span class="spy">ü</span><span class="spk"><input maxlength="1" id="sp_V" /></span></div>
+            <br />
+            <div class="bs"><span class="spy">ai</span><span class="spk"><input maxlength="1" id="sp_AI" /></span></div>
+            <div class="bs"><span class="spy">ei</span><span class="spk"><input maxlength="1" id="sp_EI" /></span></div>
+            <div class="bs"><span class="spy">ui</span><span class="spk"><input maxlength="1" id="sp_UI" /></span></div>
+            <br />
+            <div class="bs"><span class="spy">ao</span><span class="spk"><input maxlength="1" id="sp_AO" /></span></div>
+            <div class="bs"><span class="spy">ou</span><span class="spk"><input maxlength="1" id="sp_OU" /></span></div>
+            <div class="bs"><span class="spy">iu</span><span class="spk"><input maxlength="1" id="sp_IU" /></span></div>
+            <br />
+            <div class="bs"><span class="spy">ie</span><span class="spk"><input maxlength="1" id="sp_IE" /></span></div>
+            <div class="bs"><span class="spy">üe</span><span class="spk"><input maxlength="1" id="sp_VE" /></span></div>
+            <div class="bs"><span class="spy">ue</span><span class="spk"><input maxlength="1" id="sp_UE" /></span></div>
+            <br />
+            <div class="bs"><span class="spy">an</span><span class="spk"><input maxlength="1" id="sp_AN" /></span></div>
+            <div class="bs"><span class="spy">en</span><span class="spk"><input maxlength="1" id="sp_EN" /></span></div>
+            <div class="bs"><span class="spy">in</span><span class="spk"><input maxlength="1" id="sp_IN" /></span></div>
+            <div class="bs"><span class="spy">un</span><span class="spk"><input maxlength="1" id="sp_UN" /></span></div>
+            <br />
+            <div class="bs"><span class="spy">ang</span><span class="spk"><input maxlength="1" id="sp_AG" /></span></div>
+            <div class="bs"><span class="spy">eng</span><span class="spk"><input maxlength="1" id="sp_EG" /></span></div>
+            <div class="bs"><span class="spy">ing</span><span class="spk"><input maxlength="1" id="sp_IG" /></span></div>
+            <div class="bs"><span class="spy">ong</span><span class="spk"><input maxlength="1" id="sp_OG" /></span></div>
+            <br />
+            <div class="bs"><span class="spy">ia</span><span class="spk"><input maxlength="1" id="sp_IA" /></span></div>
+            <div class="bs"><span class="spy">iao</span><span class="spk"><input maxlength="1" id="sp_IAO" /></span></div>
+            <div class="bs"><span class="spy">ian</span><span class="spk"><input maxlength="1" id="sp_IAN" /></span></div>
+            <div class="bs"><span class="spy">iang</span><span class="spk"><input maxlength="1" id="sp_IAG" /></span></div>
+            <div class="bs"><span class="spy">iong</span><span class="spk"><input maxlength="1" id="sp_IOG" /></span></div>
+            <br />
+            <div class="bs"><span class="spy">ua</span><span class="spk"><input maxlength="1" id="sp_UA" /></span></div>
+            <div class="bs"><span class="spy">uai</span><span class="spk"><input maxlength="1" id="sp_UAI" /></span></div>
+            <div class="bs"><span class="spy">uan</span><span class="spk"><input maxlength="1" id="sp_UAN" /></span></div>
+            <div class="bs"><span class="spy">uang</span><span class="spk"><input maxlength="1" id="sp_UAG" /></span></div>
+            <div class="bs"><span class="spy">uo</span><span class="spk"><input maxlength="1" id="sp_UO" /></span></div>
+          </div>
+          <h4>〇声母音节</h4>
+          <div class="in">
+            <div class="bs"><span class="spy">a</span><span class="spk"><input maxlength="2" id="sp__A" /></span></div>
+            <div class="bs"><span class="spy">ai</span><span class="spk"><input maxlength="2" id="sp__AI" /></span></div>
+            <div class="bs"><span class="spy">an</span><span class="spk"><input maxlength="2" id="sp__AN" /></span></div>
+            <div class="bs"><span class="spy">ang</span><span class="spk"><input maxlength="2" id="sp__AG" /></span></div>
+            <div class="bs"><span class="spy">ao</span><span class="spk"><input maxlength="2" id="sp__AO" /></span></div>
+            <br />
+            <div class="bs"><span class="spy">o</span><span class="spk"><input maxlength="2" id="sp__O" /></span></div>
+            <div class="bs"><span class="spy">ou</span><span class="spk"><input maxlength="2" id="sp__OU" /></span></div>
+            <br />
+            <div class="bs"><span class="spy">e</span><span class="spk"><input maxlength="2" id="sp__E" /></span></div>
+            <div class="bs"><span class="spy">ei</span><span class="spk"><input maxlength="2" id="sp__EI" /></span></div>
+            <div class="bs"><span class="spy">en</span><span class="spk"><input maxlength="2" id="sp__EN" /></span></div>
+            <div class="bs"><span class="spy">eng</span><span class="spk"><input maxlength="2" id="sp__EG" /></span></div>
+            <div class="bs"><span class="spy">er</span><span class="spk"><input maxlength="2" id="sp__ER" /></span></div>
+          </div>
+          <div class="exn">
+            <h4>特殊音节</h4>
+            <div class="in">
+              <div><span class="spy"><input maxlength="6" /></span><span class="spk"><input maxlength="2" /></span></div>
+              <div><span class="spy"><input maxlength="6" /></span><span class="spk"><input maxlength="2" /></span></div>
+              <div><span class="spy"><input maxlength="6" /></span><span class="spk"><input maxlength="2" /></span></div>
+              <div><span class="spy"><input maxlength="6" /></span><span class="spk"><input maxlength="2" /></span></div>
+              <div><span class="spy"><input maxlength="6" /></span><span class="spk"><input maxlength="2" /></span></div>
+              <div><span class="spy"><input maxlength="6" /></span><span class="spk"><input maxlength="2" /></span></div>
+              <div><span class="spy"><input maxlength="6" /></span><span class="spk"><input maxlength="2" /></span></div>
+              <div><span class="spy"><input maxlength="6" /></span><span class="spk"><input maxlength="2" /></span></div>
+              <div><span class="spy"><input maxlength="6" /></span><span class="spk"><input maxlength="2" /></span></div>
+              <div><span class="spy"><input maxlength="6" /></span><span class="spk"><input maxlength="2" /></span></div>
+              <div><span class="spy"><input maxlength="6" /></span><span class="spk"><input maxlength="2" /></span></div>
+              <div><span class="spy"><input maxlength="6" /></span><span class="spk"><input maxlength="2" /></span></div>
+              <div><span class="spy"><input maxlength="6" /></span><span class="spk"><input maxlength="2" /></span></div>
+              <div><span class="spy"><input maxlength="6" /></span><span class="spk"><input maxlength="2" /></span></div>
+              <div><span class="spy"><input maxlength="6" /></span><span class="spk"><input maxlength="2" /></span></div>
+              <div><span class="spy"><input maxlength="6" /></span><span class="spk"><input maxlength="2" /></span></div>
+              <div><span class="spy"><input maxlength="6" /></span><span class="spk"><input maxlength="2" /></span></div>
+              <div><span class="spy"><input maxlength="6" /></span><span class="spk"><input maxlength="2" /></span></div>
+              <div><span class="spy"><input maxlength="6" /></span><span class="spk"><input maxlength="2" /></span></div>
+              <div><span class="spy"><input maxlength="6" /></span><span class="spk"><input maxlength="2" /></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="exn">
+        <h3>读音频率</h3>
+        <div class="in"><textarea class="ct" id="count">,a,201272
+,ai,334635
+,an,684007
+,ang,14800
+,ao,185549
+,e,251932
+,ei,1019
+,en,50806
+,er,1763259
+,eng,4566
+,o,8788
+,ou,138266
+b,a,988004
+b,ai,496336
+b,an,809687
+b,ang,154298
+b,ao,1328261
+b,ei,1097420
+b,en,714864
+b,eng,15099
+b,i,936004
+b,ian,787533
+b,iao,643866
+b,ie,288107
+b,in,75013
+b,ing,708962
+b,o,361985
+b,u,4079290
+c,a,13552
+c,ai,713880
+c,an,282172
+c,ang,107524
+c,ao,133381
+c,e,233489
+c,en,1294
+c,eng,224369
+c,i,1012511
+c,ong,609053
+c,ou,7042
+c,u,106131
+c,uan,5581
+c,ui,53114
+c,un,331501
+c,uo,146756
+ch,a,406091
+ch,ai,25731
+ch,an,759234
+ch,ang,1833141
+ch,ao,248646
+ch,e,350771
+ch,en,259833
+ch,eng,1786300
+ch,i,495085
+ch,ong,211952
+ch,ou,134427
+ch,u,1967791
+ch,uai,3058
+ch,uan,405214
+ch,uang,254143
+ch,ui,39692
+ch,un,151254
+ch,uo,6660
+d,a,2504190
+d,ai,884245
+d,an,923950
+d,ang,891698
+d,ao,2420704
+d,e,12648125
+d,en,1
+d,eng,688426
+d,i,2464890
+d,ia,198
+d,ian,1114173
+d,iao,82297
+d,ie,45467
+d,ing,754488
+d,iu,13940
+d,ong,1165941
+d,ou,737451
+d,u,786771
+d,uan,372847
+d,ui,1442442
+d,un,176038
+d,uo,962799
+f,a,2009066
+f,an,727548
+f,ang,1513223
+f,ei,634386
+f,en,940985
+f,eng,504147
+f,iao,1
+f,o,60890
+f,ou,74467
+f,u,1828853
+g,a,10893
+g,ai,607987
+g,an,653401
+g,ang,357292
+g,ao,905985
+g,e,2806040
+g,ei,309022
+g,en,275683
+g,eng,310545
+g,ong,2233833
+g,ou,365284
+g,u,697367
+g,ua,68982
+g,uai,50489
+g,uan,1431379
+g,uang,442996
+g,ui,475659
+g,un,23573
+g,uo,3794793
+h,a,84928
+h,ai,1181983
+h,an,341652
+h,ang,86076
+h,ao,827739
+h,e,2954203
+h,ei,117338
+h,en,407974
+h,eng,77632
+h,ong,257317
+h,ou,1024574
+h,u,720217
+h,ua,1678430
+h,uai,123062
+h,uan,400747
+h,uang,245187
+h,ui,2125717
+h,un,121763
+h,uo,1057000
+j,i,5378305
+j,ia,2157554
+j,ian,2449940
+j,iang,1039535
+j,iao,1307519
+j,ie,1918573
+j,in,2332486
+j,ing,2273476
+j,iong,6143
+j,iu,1661613
+j,u,1321100
+j,uan,75969
+j,ue,432269
+j,un,558882
+k,a,112440
+k,ai,781762
+k,an,603717
+k,ang,152749
+k,ao,207528
+k,e,1789752
+k,en,64266
+k,eng,11817
+k,ong,319634
+k,ou,339630
+k,u,213734
+k,ua,41951
+k,uai,262503
+k,uan,129608
+k,uang,247950
+k,ui,63905
+k,un,117150
+k,uo,155233
+l,a,375599
+l,ai,1529184
+l,an,265532
+l,ang,105177
+l,ao,498709
+l,e,3261442
+l,ei,318430
+l,eng,70329
+l,i,3806174
+l,ian,654728
+l,iang,1124509
+l,iao,226145
+l,ie,281042
+l,in,338716
+l,ing,694713
+l,iu,588318
+l,o,420032
+l,ong,146958
+l,ou,95210
+l,u,636664
+l,uan,70106
+l,un,406465
+l,ü,470898
+l,üe,80659
+m,a,528172
+m,ai,240412
+m,an,267752
+m,ang,84583
+m,ao,334500
+m,e,528078
+m,ei,1387894
+m,en,1720313
+m,eng,216924
+m,i,343947
+m,ian,765746
+m,iao,98530
+m,ie,35532
+m,in,858033
+m,ing,1132617
+m,iu,7021
+m,o,414959
+m,ou,129246
+m,u,762579
+n,a,962435
+n,ai,85150
+n,an,611198
+n,ang,7585
+n,ao,110603
+n,e,131130
+n,ei,417476
+n,en,8887
+n,eng,792017
+n,i,874291
+n,ian,1655594
+n,iang,53417
+n,iao,30797
+n,ie,22571
+n,in,60705
+n,ing,93546
+n,iu,92280
+n,ong,392458
+n,ou,47
+n,u,102712
+n,uan,17816
+n,uo,59988
+n,ü,294815
+n,üe,7138
+p,a,118314
+p,ai,329952
+p,an,167764
+p,ang,63052
+p,ao,106173
+p,ei,225405
+p,en,20341
+p,eng,162951
+p,i,303688
+p,ian,246163
+p,iao,106892
+p,ie,4855
+p,in,505207
+p,ing,587309
+p,o,235226
+p,ou,4777
+p,u,226948
+q,i,2762926
+q,ia,30421
+q,ian,1086669
+q,iang,442737
+q,iao,184096
+q,ie,329055
+q,in,315818
+q,ing,1150062
+q,iong,35299
+q,iu,451786
+q,u,1506961
+q,uan,1049687
+q,ue,421625
+q,un,141461
+r,an,615505
+r,ang,191231
+r,ao,43740
+r,e,142937
+r,en,3508887
+r,eng,102022
+r,i,991994
+r,ong,286618
+r,ou,64917
+r,u,904745
+r,uan,33876
+r,ui,63944
+r,un,27362
+r,uo,98736
+s,a,87069
+s,ai,235435
+s,an,534299
+s,ang,44570
+s,ao,36542
+s,e,237733
+s,en,47239
+s,eng,6219
+s,i,1627242
+s,ong,209449
+s,ou,29094
+s,u,490805
+s,uan,141726
+s,ui,345439
+s,un,115512
+s,uo,715502
+sh,a,224159
+sh,ai,6668
+sh,an,470302
+sh,ang,2063177
+sh,ao,408115
+sh,e,1108690
+sh,en,1320820
+sh,eng,1915764
+sh,i,10519921
+sh,ou,1317037
+sh,u,1499150
+sh,ua,18008
+sh,uai,37172
+sh,uan,5288
+sh,uang,143764
+sh,ui,593231
+sh,un,68835
+sh,uo,1201137
+t,a,3027330
+t,ai,610724
+t,an,444706
+t,ang,173440
+t,ao,248134
+t,e,428398
+t,eng,37959
+t,i,1351257
+t,ian,732059
+t,iao,608535
+t,ie,124700
+t,ing,410301
+t,ong,1561129
+t,ou,630035
+t,u,498580
+t,uan,212620
+t,ui,245341
+t,un,18350
+t,uo,193842
+w,a,90744
+w,ai,557152
+w,an,861346
+w,ang,792760
+w,ei,3350224
+w,en,1376343
+w,eng,11565
+w,o,2028466
+w,u,1937403
+x,i,1847431
+x,ia,931711
+x,ian,1932126
+x,iang,2318846
+x,iao,1417531
+x,ie,1019414
+x,in,1697685
+x,ing,2165222
+x,iong,124129
+x,iu,221318
+x,u,845164
+x,uan,350471
+x,ue,998419
+x,un,350632
+y,a,493298
+y,an,1278355
+y,ang,1011614
+y,ao,1499898
+y,e,2223200
+y,i,8560380
+y,in,1047274
+y,ing,1101740
+y,o,3946
+y,ong,935706
+y,ou,4032007
+y,u,2636015
+y,uan,1958432
+y,ue,989176
+y,un,406850
+z,a,103539
+z,ai,3284695
+z,an,99476
+z,ang,29007
+z,ao,428251
+z,e,428144
+z,ei,6355
+z,en,125548
+z,eng,289721
+z,i,2380010
+z,ong,586703
+z,ou,302111
+z,u,672366
+z,uan,19284
+z,ui,553750
+z,un,53808
+z,uo,1619391
+zh,a,71871
+zh,ai,91488
+zh,an,1149626
+zh,ang,524889
+zh,ao,420912
+zh,e,3562020
+zh,en,638433
+zh,eng,1726585
+zh,i,4617458
+zh,ong,3778873
+zh,ou,459239
+zh,u,1696964
+zh,ua,95534
+zh,uai,1470
+zh,uan,404254
+zh,uang,338205
+zh,ui,73927
+zh,un,172918
+zh,uo,64097</textarea></div>
+        <h3>击键当量</h3>
+        <div class="in"><div id="key_delay_c" class="ct"><table id="key_delay">
+        <tr><th><div class="tl th">&nbsp;&nbsp;</div></th><script>
+['11', '12', '13', '14', '15', '16', '17', '18', '19', '1A', '1B', '1C',
+ '21', '22', '23', '24', '25', '26', '27', '28', '29', '2A', '2B',
+ '32', '33', '34', '35', '36', '37', '38', '39', '3A', '3B'].map(function (k) {
+   document.write('<th><div class="th">' + k + '</div></th>');
+});
+        </script></tr><script>
+[
+  ['11', 13, 17, 17, 14, 16, 12, 12, 11, 12, 13, 12, 10, 19, 21, 19, 16, 17, 11, 11, 11, 11, 12, 11, 20, 21, 21, 17, 19, 11, 11, 11, 10, 11],
+  ['12', 16, 13, 15, 15, 15, 12, 12, 11, 11, 12, 12, 11, 18, 18, 19, 16, 16, 11, 11, 11, 11, 12, 11, 20, 20, 21, 19, 19, 11, 12, 12, 11, 11],
+  ['13', 14, 14, 13, 13, 16, 12, 11, 11, 10, 12, 12, 11, 15, 17, 18, 15, 16, 11, 10, 10, 11, 12, 11, 18, 20, 19, 17, 18, 11, 11, 12, 11, 11],
+  ['14', 15, 15, 14, 13, 17, 12, 11, 11, 12, 12, 12, 11, 15, 17, 17, 17, 17, 11, 11, 12, 11, 11, 11, 20, 20, 21, 19, 19, 11, 12, 12, 11, 11],
+  ['15', 11, 15, 14, 17, 13, 12, 12, 11, 11, 11, 13, 11, 15, 15, 17, 17, 17, 11, 11, 11, 11, 12, 11, 19, 21, 20, 20, 19, 11, 11, 13, 11, 11],
+  ['16', 12, 13, 11, 12, 13, 13, 15, 14, 15, 14, 16, 19, 12, 11, 11, 11, 11, 16, 18, 17, 17, 17, 17, 13, 15, 11, 13, 11, 17, 19, 19, 19, 18],
+  ['17', 11, 12, 11, 11, 18, 15, 13, 14, 14, 13, 14, 17, 11, 12, 11, 11, 11, 16, 16, 17, 16, 16, 17, 13, 12, 11, 12, 11, 17, 18, 20, 18, 17],
+  ['18', 12, 11, 11, 11, 11, 16, 14, 13, 14, 15, 17, 19, 12, 11, 11, 11, 12, 17, 15, 16, 16, 18, 18, 13, 12, 12, 12, 12, 15, 17, 19, 19, 19],
+  ['19', 13, 11, 11, 12, 11, 15, 13, 15, 14, 15, 18, 20, 11, 11, 11, 11, 11, 14, 15, 18, 17, 19, 19, 13, 12, 12, 13, 11, 15, 17, 20, 21, 20],
+  ['1A', 13, 13, 11, 12, 13, 16, 15, 16, 17, 13, 17, 18, 11, 11, 11, 10, 11, 16, 16, 19, 19, 19, 19, 12, 12, 11, 13, 11, 18, 17, 24, 23, 22],
+  ['1B', 12, 13, 11, 12, 12, 18, 16, 19, 21, 18, 14, 16, 12, 12, 11, 11, 12, 18, 18, 22, 22, 19, 18, 13, 12, 12, 12, 12, 19, 20, 25, 22, 20],
+  ['1C', 12, 12, 12, 12, 12, 21, 19, 21, 22, 20, 19, 14, 12, 11, 13, 13, 12, 21, 21, 23, 23, 20, 19, 13, 12, 12, 12, 12, 21, 20, 25, 24, 21],
+  ['21', 19, 18, 15, 17, 15, 12, 12, 11, 11, 12, 12, 11, 13, 16, 15, 15, 15, 11, 11, 10, 10, 13, 12, 19, 19, 17, 15, 18, 11, 11, 12, 10, 10],
+  ['22', 17, 17, 15, 16, 16, 11, 11, 11, 11, 11, 12, 11, 16, 13, 15, 15, 15, 11, 11, 11, 11, 12, 11, 18, 18, 18, 16, 17, 11, 11, 12, 11, 11],
+  ['23', 16, 16, 16, 17, 17, 12, 11, 10, 11, 11, 12, 11, 14, 14, 13, 15, 15, 11, 11, 11, 11, 12, 12, 15, 17, 19, 16, 17, 11, 11, 12, 10, 11],
+  ['24', 15, 14, 14, 17, 17, 12, 12, 12, 11, 11, 12, 11, 13, 15, 15, 13, 18, 11, 11, 11, 11, 12, 10, 16, 17, 18, 18, 18, 11, 12, 12, 11, 12],
+  ['25', 14, 15, 14, 18, 17, 11, 11, 11, 11, 11, 12, 11, 14, 15, 15, 16, 13, 12, 11, 11, 11, 12, 11, 16, 17, 18, 18, 18, 11, 11, 12, 11, 11],
+  ['26', 12, 11, 11, 11, 11, 15, 15, 13, 14, 14, 16, 18, 12, 11, 11, 12, 15, 13, 16, 15, 14, 16, 17, 12, 12, 12, 12, 12, 16, 18, 18, 18, 19],
+  ['27', 13, 12, 11, 11, 11, 18, 16, 15, 15, 14, 16, 18, 11, 12, 11, 12, 12, 16, 13, 13, 14, 16, 16, 13, 12, 11, 12, 12, 16, 18, 19, 17, 17],
+  ['28', 12, 11, 11, 11, 11, 17, 16, 16, 16, 18, 18, 19, 12, 11, 11, 12, 12, 16, 15, 13, 13, 17, 17, 13, 13, 12, 12, 11, 16, 16, 18, 16, 17],
+  ['29', 13, 12, 11, 11, 11, 18, 16, 15, 17, 18, 18, 20, 12, 11, 11, 11, 13, 17, 16, 16, 14, 17, 18, 13, 12, 12, 12, 12, 17, 17, 19, 18, 18],
+  ['2A', 12, 12, 12, 11, 12, 19, 17, 18, 21, 18, 18, 20, 12, 11, 11, 11, 12, 17, 17, 18, 20, 14, 17, 13, 12, 11, 12, 12, 18, 19, 20, 20, 18],
+  ['2B', 11, 12, 12, 12, 12, 20, 19, 19, 21, 20, 18, 17, 12, 12, 13, 12, 12, 18, 18, 20, 21, 19, 14, 14, 12, 12, 12, 12, 18, 18, 21, 20, 18],
+  ['32', 21, 21, 18, 18, 17, 14, 12, 11, 12, 11, 12, 10, 18, 19, 17, 17, 17, 10, 10, 11, 11, 12, 11, 13, 15, 16, 15, 15, 11, 10, 12, 10, 11],
+  ['33', 20, 19, 18, 17, 18, 12, 11, 11, 11, 11, 12, 12, 17, 17, 15, 17, 15, 11, 10, 11, 10, 12, 11, 17, 13, 15, 16, 15, 11, 11, 12, 11, 11],
+  ['34', 18, 15, 18, 19, 19, 12, 11, 11, 11, 11, 12, 11, 16, 18, 17, 17, 17, 11, 11, 10, 10, 12, 11, 14, 16, 13, 15, 16, 10, 11, 12, 11, 11],
+  ['35', 17, 15, 16, 19, 19, 13, 14, 11, 12, 13, 11, 11, 15, 15, 16, 17, 18, 11, 11, 11, 12, 11, 11, 14, 15, 16, 13, 18, 12, 11, 12, 11, 11],
+  ['36', 18, 18, 17, 19, 19, 13, 12, 11, 11, 11, 12, 11, 16, 17, 16, 19, 18, 12, 12, 12, 11, 12, 11, 16, 17, 17, 18, 13, 11, 11, 13, 11, 11],
+  ['37', 13, 11, 11, 11, 11, 18, 17, 15, 15, 16, 18, 19, 12, 12, 11, 12, 12, 17, 16, 16, 15, 17, 17, 13, 13, 12, 12, 12, 13, 17, 18, 16, 17],
+  ['38', 13, 12, 11, 11, 12, 20, 18, 16, 17, 17, 19, 19, 12, 12, 11, 12, 11, 18, 16, 16, 15, 18, 17, 13, 13, 12, 12, 11, 16, 13, 17, 16, 16],
+  ['39', 12, 12, 12, 11, 12, 21, 19, 19, 19, 20, 21, 21, 12, 12, 11, 11, 12, 19, 18, 16, 17, 20, 20, 13, 13, 12, 12, 12, 17, 16, 13, 16, 18],
+  ['3A', 12, 12, 11, 12, 12, 20, 19, 19, 20, 19, 20, 21, 11, 11, 11, 11, 11, 10, 18, 17, 18, 19, 19, 13, 12, 12, 11, 11, 18, 16, 16, 14, 17],
+  ['3B', 12, 13, 11, 12, 12, 20, 19, 20, 23, 21, 20, 20, 12, 11, 12, 12, 12, 20, 18, 19, 20, 10, 18, 13, 12, 12, 12, 12, 19, 17, 19, 19, 14]
+].map(function (l) {
+  document.write('<tr>');
+  l.map(function (v) {
+    if (typeof(v) === 'string') document.write('<th><div class="tl">' + v + '</div></th>');
+    else document.write('<td><input value="' + v + '" /></td>');
+  });
+  document.write('</tr>');
+});
+          </script>
+        </table></div></div>
+      </div>
+      <div class="buttons">
+        <label><input id="ex_option" type="checkbox" /><input type="button" value="显示全部设置项" /></label>
+        <input id="reset_all" type="button" value="重置" />
+        <input id="reset_all_0" type="reset" />
+        <input id="check_all" type="button" value="确定" />
+      </div>
+    </form></div>
+    <div id="calc" style="display: none;"><h2>计算</h2>
+      <h3>击键频率</h3>
+      <div class="in">
+        <div id="calc_freq" class="layout">
+        </div>
+        <div class="in">
+          上排：<input id="R1" class="ot" disabled="disabled" />
+          中排：<input id="R2" class="ot" disabled="disabled" />
+          下排：<input id="R3" class="ot" disabled="disabled" />
+        </div>
+        <div class="in">
+          左左：<input id="RLL" class="ot" disabled="disabled" />
+          左右：<input id="RLR" class="ot" disabled="disabled" />
+          右左：<input id="RRL" class="ot" disabled="disabled" />
+          右右：<input id="RRR" class="ot" disabled="disabled" />
+        </div>
+        <div class="in">
+          左手：<input id="RLH" class="ot" disabled="disabled" />
+          右手：<input id="RRH" class="ot" disabled="disabled" />
+          单手：<input id="RSH" class="ot" disabled="disabled" />
+          双手：<input id="RDH" class="ot" disabled="disabled" />
+        </div>
+      </div>
+      <h3>击键当量</h3>
+      <div class="in">
+        单字当量：<div id="DCS"><input id="delay_count" class="ot" disabled="disabled" /> / 10。</div>
+        连续当量：<div id="DCD"><input id="delay_cnt_c" class="ot" disabled="disabled" /> / 10。</div>
+      </div>
+    </div>
+    <div id="output" style="display: none;"><h2>输出</h2>
+      <div class="in">
+        <output id="verify_output"></output>
+        <div class="buttons">
+          <input id="ret_edit" type="button" value="返回编辑" />
+        </div>
+      </div>
+    </div>
+    <h2>说明</h2>
+    <div class="in">
+      <p>字频和当量表均来源于网络。其中连续当量采用如下方法计算：</p>
+      <math xmlns="http://www.w3.org/1998/Math/MathML"><mrow>
+      <mi>连续当量</mi><mo>=</mo>
+      <mfrac><mrow>
+      <munderover>
+        <mrow><mo>&#x2211;</mo></mrow>
+        <mrow><msub><mrow><mi>读音</mi></mrow><mrow><mi>甲</mi></mrow></msub></mrow>
+        <mrow></mrow>
+      </munderover>
+      <munderover>
+        <mrow><mo>&#x2211;</mo></mrow>
+        <mrow><msub><mrow><mi>读音</mi></mrow><mrow><mi>乙</mi></mrow></msub></mrow>
+        <mrow></mrow>
+      </munderover>
+      <mrow><mi>频率</mi><mo>(</mo>
+        <mrow><msub><mrow><mi>读音</mi></mrow><mrow><mi>甲</mi></mrow></msub></mrow>
+      <mo>)</mo></mrow>
+      <mrow><mi>频率</mi><mo>(</mo>
+        <mrow><msub><mrow><mi>读音</mi></mrow><mrow><mi>乙</mi></mrow></msub></mrow>
+      <mo>)</mo></mrow>
+      <mrow><mi>当量</mi><mo>(</mo><msub>
+        <mrow><msub><mrow><mi>读音</mi></mrow><mrow><mi>甲</mi></mrow></msub></mrow>
+        <mrow><mi>韵母</mi></mrow>
+      </msub><mi>,</mi><msub>
+        <mrow><msub><mrow><mi>读音</mi></mrow><mrow><mi>乙</mi></mrow></msub></mrow>
+        <mrow><mi>声母</mi></mrow>
+      </msub><mo>)</mo></mrow>
+      </mrow><mrow>
+      <munderover>
+        <mrow><mo>&#x2211;</mo></mrow>
+        <mrow><msub><mrow><mi>读音</mi></mrow><mrow><mi>甲</mi></mrow></msub></mrow>
+        <mrow></mrow>
+      </munderover>
+      <munderover>
+        <mrow><mo>&#x2211;</mo></mrow>
+        <mrow><msub><mrow><mi>读音</mi></mrow><mrow><mi>乙</mi></mrow></msub></mrow>
+        <mrow></mrow>
+      </munderover>
+      <mrow><mi>频率</mi><mo>(</mo>
+        <mrow><msub><mrow><mi>读音</mi></mrow><mrow><mi>甲</mi></mrow></msub></mrow>
+      <mo>)</mo></mrow>
+      <mrow><mi>频率</mi><mo>(</mo>
+        <mrow><msub><mrow><mi>读音</mi></mrow><mrow><mi>乙</mi></mrow></msub></mrow>
+      <mo>)</mo></mrow>
+      </mrow></mfrac>
+      </mrow></math>
+      <p>当量等计算方法仅供参考，受词频、当量表以及用户个人因素影响，以上数据可能很不准确。</p>
+    </div>
+    <div id="footer"><footer>cc-by-sa 3.0 或 GNU GPL v3， 田生，2012-08-11</footer></div>
+  </body>
+</html>
+

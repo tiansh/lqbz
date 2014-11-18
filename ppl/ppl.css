@@ -1,0 +1,162 @@
+body {
+  font-family: Times New Roman, 宋体;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  background: black;
+  font-size:20px;
+  color: red;
+  text-shadow: 1px 1px lightgray;
+  /*overflow: hidden;*/
+}
+
+#h {
+  width: 384px;
+  height: 26px;
+  padding: 2px;
+  margin: 0 auto;
+}
+
+#hl, #hr {
+  width: 17px;
+  height: 21px;
+}
+
+#hl {
+  float: left;
+  background-image: url(pic/hl.png);
+  margin: 0 8px 0 0;
+}
+
+#hr {
+  float: right;
+  background-image: url(pic/hr.png);
+  margin: 0 0 0 8px;
+}
+
+#hs {
+  float: left;
+  background-image: url(pic/hs.png);
+  width: 35px;
+  height: 21px;
+}
+
+#he {
+  width: 29px;
+  height: 21px;
+  float: left;
+  background-image: url(pic/he.png);
+}
+
+#e {
+  float: left;
+  width: 3em;
+}
+
+#s {
+  float: left;
+  width: 6em;
+}
+
+#e, #s {
+  height: 21px;
+  padding: 0 1em;
+}
+
+#m {
+  width: 384px;
+  height: 570px;
+  background: black;
+  margin: 0 auto;
+  border: cyan 2px solid;
+}
+
+#f {
+  border: cyan 2px solid;
+  margin: -2px;
+  height: 463.6921938165305px;
+  margin: -2px -2px -465.6921938165305px -2px;
+}
+
+.b, .mb {
+  width: 48px;
+  height: 48px;
+  border-radius: 24px;
+  display: block;
+  margin: 0 0 -48px;
+  position: relative;
+}
+
+.mb {
+  transition: all 0.032s linear 0s;
+  -moz-transition: all 0.032s linear 0s;
+  -webkit-transition: all 0.032s linear 0s;
+  -o-transition: all 0.032s linear 0s;
+  -ms-transition: all 0.032s linear 0s;
+}
+
+.c0 { display: none; }
+.c1 { background: blue; }
+.c2 { background: red; }
+.c3 { background: green; }
+.c4 { background: yellow; }
+.c5 { background: lightgray; }
+.c6 { background: darkgray; }
+.c7 { background: brown; }
+.c8 { background: magenta; }
+
+#r {
+  height: 144px;
+  width: 16px;
+  margin: 0 -16px -144px 0;
+  position: relative;
+  top: 439.6921938165305px;
+  left: 184px;
+}
+
+#rb {
+  position: relative;
+  top: 2px;
+  left: 7px;
+  width: 2px;
+  height: 118px;
+  background: white;
+  margin: 0 -2px -118px 0;
+}
+
+#rh {
+  position: relative;
+  top: 0px;
+  left: 0px;
+  height: 0px; width: 0px;
+  border: 8px solid transparent;
+  border-width: 0 8px 16px;
+  border-bottom-color: white;
+}
+
+
+#n {
+  width: 82px;
+  height: 46px;
+  margin: 0 -82px -46px 0;
+  position: relative;
+  left: 0;
+  top: 524px;
+  background-image: url(pic/next.png);
+}
+
+#nb {
+  left: 64px;
+  top: 522px;
+}
+
+#t {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  margin: 0 -32px -32px 0;
+  top: 500px;
+  left: 260px;
+}
+
