@@ -2,11 +2,239 @@
 <html>
   <head>
     <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
-    <link rel="stylesheet" href="sp.css" />
     <title>双拼布局的统计计算</title>
     <meta name="keywords" content="Dvorak,QWERTY,键盘,布局,打字,双拼" />
     <meta name="description" content="本页面用JavaScript通过给定的音韵使用频率、键盘布局、双拼方案计算出在此情况下每个按键的使用频率；上排、中排、下排，左右手的统计，以及字内的击键当量。支持QWERTY、Dvorak、Colemak等双手键盘布局。" />
     <meta name="author" content="田生" />
+    <style>
+body { background: #F1F2F3; font-family: "Heiti SC", "黑体-简", "MS Yahei", "微软雅黑", "STXihei", "华文细黑", "WenQuanYi ZenHei", "文泉驿正黑体", "Sans-sarif"; font-size: 16px; width: 800px; margin: 16px auto; padding: auto; }
+h1, h2, h3, h4, math, mrow, mi, mo, mfrac, msub { font-family: "Microsoft YaHei UI", "微软雅黑UI", "Heiti SC", "黑体-简", "MS Yahei", "微软雅黑", "STXihei", "华文细黑", "WenQuanYi ZenHei", "文泉驿正黑体", "Sans-sarif"; }
+#nav { display: block; width: 192px; margin-right: -224px; position: relative; right: 224px; float: left; padding: 0 32px 0 0; }
+#nav a { display: block; margin: 1px 0px; padding: 8px 0; width: 100%; background: #40464C; text-align: center; font-size: 18px; color: #fff; text-shadow: none; }
+#header { display: block; margin: 16px 0; height: 32px; }
+#buttons { display: inline; }
+#header h1 { display: block; float: left; margin: 0px; }
+#buttons a:hover { text-shadow: none; background: #40464C; }
+#buttons a { display: block; float: right; color: white; padding: 4px 16px; margin-left: 16px; background: #707478; }
+h1 { font-size: 24px; }
+h2 { background-color: #CACED3; font-size: 22px; margin: 8px 8px; padding: 4px 8px; }
+h3 { font-size: 18px; margin: 4px 24px; }
+h4 { font-size: 16px; margin: 2px 8px; }
+p { padding: 0; margin: 6px 0; }
+a { color: #08C; font-weight: bold; text-decoration: none; outline-style: none; }
+a:hover { text-shadow: 0 0 4px #9DE; }
+.in { display: block; margin: 8px 0 8px 32px; padding: 0 16px; }
+#footer { text-align: right; font-size: smaller; color: #707478; }
+
+div.layout {
+  width: 720px;
+}
+
+div.layout div.line {
+  width: 720px;
+  height: 56px;
+  margin-top: -2px;
+  padding: 0 2px;
+}
+
+div.layout div.line1 {
+  padding-left: 10px;
+}
+
+div.layout div.line2 {
+  padding-left: 35px;
+}
+
+div.layout div.line3 {
+  padding-left: 0px;
+}
+
+div.layout div.line div {
+  width: 48px;
+  height: 48px;
+  border: 2px solid black;
+  margin-left: -2px;
+  margin-bottom: -2px;
+  float:left;
+  padding: 2px;
+}
+
+div.layout div.line div span.t {
+  font-weight: bold;
+  font-size: 16px;
+  display: block;
+  height: 32px;
+  width: 32px;
+  margin-bottom: -32px;
+}
+
+div.layout div.line div span.a1,
+div.layout div.line div span.a2,
+div.layout div.line div span.a3,
+div.layout div.line div span.b,
+div.layout div.line div span.c {
+  text-align: right;
+  display: block;
+  height: 16px;
+  font-size: 14px;
+  line-height: 14px;
+}
+
+#K24 .t, #K27 .t {
+  text-decoration: underline;
+}
+
+div.layout div.line div span.b {
+  margin-top: -16px;
+  text-align: left;
+}
+
+div.layout div.line div span.c {
+  margin-top: 32px;
+}
+
+body:not(.ex) .exn {
+  display: none !important;
+}
+
+body:not(.ex) .ex {
+  visibility: hidden !important;
+}
+
+#my_layout {
+  width: 288px;
+}
+
+.spy {
+  width: 48px;
+  display: inline-block;
+  text-align: right;
+}
+
+.spy input {
+  width: 48px;
+  display: inline-block;
+  text-align: right;
+}
+
+
+.spk {
+  margin-left: 16px;
+}
+
+.spk input {
+  width: 32px;
+}
+
+#sp_sp div, 
+#my_shuangpin .in div {
+  display: inline-block;
+  width: 19%;
+}
+
+#DCS, #DCD {
+  display: inline-block;
+  width: 128px;
+  margin-right: 108px;
+}
+
+output, .ct {
+  display: block;
+  width: 100%;
+  height: 128px;
+  overflow: auto;
+  border: 1px #CCC solid;
+  padding: 0;
+}
+
+output {
+  resize: vertical;
+}
+
+.ct {
+  resize: both;
+}
+
+#key_delay {
+  border-spacing: 0;
+}
+
+#key_delay th, #key_delay th div {
+  width: 24px;
+  padding: 0;
+}
+
+#key_delay td, #key_delay td input {
+  width: 16px;
+}
+
+#key_delay th div {
+  display: inline-block;
+  position: relative;
+  background: #F1F2F3;
+}
+
+
+#reset_all_0, #ex_option {
+  display: none;
+}
+
+#ex_option:checked~* {
+  display: none;
+}
+
+.buttons {
+  text-align: right;
+}
+
+.message  { color: #007; }
+.warning  { color: #770; }
+.error    { color: #700; }
+.verified { color: #070; }
+.debug    { color: #777; display: none; }
+.message:before  { content: '信息：'; }
+.warning:before  { content: '警告：'; }
+.error:before    { content: '错误：'; }
+.verified:before { content: '成功：'; }
+.debug:before    { content: '调试：'; }
+
+pre {
+  margin: 0 0 0 32px;
+}
+
+#layout_name, #shuangpin_name {
+  width: 192px;
+  margin-right: 32px;
+}
+
+.ot {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 0 none;
+  border-bottom: 2px solid black;
+}
+
+.ot[disabled] {
+  border: 0px none;
+}
+
+#R1, #R2, #R3 {
+  width: 64px;
+  margin-right: 88px;
+}
+
+#RLH, #RRH, #RSH, #RDH,
+#RLL, #RLR, #RRL, #RRR {
+  width: 64px;
+  margin-right: 20px;
+}
+
+#delay_count, #delay_cnt_c {
+  width: 64px;
+  text-align: right;
+}
+    </style>
     <script>
 var $ = function (i) { return document.querySelector(i); };
 var $$ = function (i) { return document.querySelectorAll(i); };
